@@ -8,11 +8,14 @@
     "@hono/zod-openapi": "^0.9.5",
     "dotenv": "^16.3.1",
     "hono": "^3.11.8",
+    "mysql2": "^3.6.5",
     "nodemailer": "^6.9.7",
     "nodemailer-express-handlebars": "^6.1.0",
+    "ulid": "^2.3.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/luxon": "^3.3.7",
     "@types/node": "^20.10.5",
     "@types/nodemailer": "^6.4.14",
     "@types/nodemailer-express-handlebars": "^4.0.5",

@@ -1,16 +1,41 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { Context } from "hono";
 import { mailer } from "../utils/mailer";
+import subscriptionRepository from "../repositories/subscription.repository";
+
+const NotifyRequestSchema = z
+  .object({
+    sku: z
+      .string()
+      .min(1)
+      .openapi({ description: "Product SKU", example: "SI-1000" }),
+    name: z.string().min(1).openapi({
+      description: "Product name",
+      example: "Coca Cola Zero (24x0,33l Lattina)",
+    }),
+    url: z.string().min(1).openapi({
+      description: "Url to product page",
+      example: "https://www.example.com/product/SI-1000",
+    }),
+  })
+  .openapi("NotifyRequest");
+
+type NotifyRequestType = z.infer<typeof NotifyRequestSchema>;
 
 export const notifyRouteDefinition = createRoute({
   method: "post",
-  path: "/api/notify/{product_sku}",
+  path: "/api/notify",
   description:
     "Notify subscribers that product {product_sku} is back in stock.",
   request: {
-    params: z.object({
-      product_sku: z.string().min(1).openapi({ example: "SI-1000" }),
-    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: NotifyRequestSchema,
+        },
+      },
+    },
+    params: z.object({}),
   },
   responses: {
     200: {
@@ -19,6 +44,10 @@ export const notifyRouteDefinition = createRoute({
         "application/json": {
           schema: z.object({
             status: z.string().openapi({ example: "OK" }),
+            sent: z.number().openapi({
+              description: "Number of sent notifications",
+              example: 1,
+            }),
           }),
         },
       },
@@ -27,21 +56,22 @@ export const notifyRouteDefinition = createRoute({
 });
 
 export const notifyRouteHandler = async (c: Context) => {
-  const productName = "Coca Cola Zero (24x0,33l Lattina)";
-  const subscribers = [
-    {
-      id: "01EYQZQZJZJZJZJZJZJZJZJZJZ",
-      email: "damian@wielocha.com",
-      product_sku: "SI-1000",
-      created_at: "2021-01-01T00:00:00.000Z",
-    },
-  ];
+  const product = await c.req.json<NotifyRequestType>();
+
+  const subscriptions = await subscriptionRepository.findByProductSku(
+    product.sku
+  );
+
+  console.log(
+    `Requested notification for ${product.sku}. Found ${subscriptions.length} subscriptions.`
+  );
 
   const message = {
     from: process.env.SMTP_FROM,
     to: "",
-    subject: `${productName} è di nuovo disponibile!`,
+    subject: `${product.name} è di nuovo disponibile!`,
     template: "email",
+    // will be populated in the loop below
     context: {
       productName: "",
       email: "",
@@ -49,27 +79,33 @@ export const notifyRouteHandler = async (c: Context) => {
     },
   };
 
-  subscribers.forEach(async (subscriber) => {
-    const unsubscribeUrl = `/api/unsubscribe/${subscriber.id}`;
+  let sentCount = 0;
+
+  for (const subscription of subscriptions) {
+    const unsubscribeUrl = `${process.env.BASE_URL}/api/unsubscribe/${subscription.id}`;
     const mail = {
       ...message,
-      to: subscriber.email,
+      to: subscription.email,
       context: {
-        productName,
-        email: subscriber.email,
+        productName: product.name,
+        productUrl: product.url,
+        email: subscription.email,
         unsubscribeUrl,
       },
     };
 
     try {
       await mailer.sendMail(mail);
+      sentCount++;
     } catch (error) {
       console.error(
-        `Nodemailer error sending email to ${subscriber.email}`,
+        `Nodemailer error sending email to ${subscription.email}`,
         error
       );
     }
-  });
+  }
 
-  return c.json({ status: "OK", id: c.req.param("product_sku") });
+  console.log(`Sending done, ${sentCount} of ${subscriptions.length} sent.`);
+
+  return c.json({ status: "OK", sent: sentCount });
 };

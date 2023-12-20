@@ -1,5 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { Context } from "hono";
+import subscriptionRepository from "../repositories/subscription.repository";
 
 export const unsubscribeRouteDefinition = createRoute({
   method: "get",
@@ -38,6 +39,12 @@ export const unsubscribeRouteDefinition = createRoute({
   },
 });
 
-export const unsubscribeRouteHandler = (c: Context) => {
-  return c.json({ status: "OK", id: c.req.param("id") });
+export const unsubscribeRouteHandler = async (c: Context) => {
+  const affectedRows = await subscriptionRepository.delete(c.req.param("id"));
+
+  if (affectedRows === 0) {
+    return c.json({ status: "Not Found" }, 404);
+  }
+
+  return c.json({ status: "OK" });
 };

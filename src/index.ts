@@ -23,8 +23,8 @@ app.openapi(notifyRouteDefinition, notifyRouteHandler);
 app.use(
   "/doc/*",
   basicAuth({
-    username: "bevy",
-    password: "express",
+    username: process.env.DOC_AUTH_USER!,
+    password: process.env.DOC_AUTH_PASSWORD!,
   })
 );
 

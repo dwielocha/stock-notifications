@@ -3,23 +3,17 @@ import { serve } from '@hono/node-server';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 import { basicAuth } from 'hono/basic-auth';
-import {
-    notifyRouteDefinition,
-    notifyRouteHandler,
-    subscribeRouteDefinition,
-    subscribeRouteHandler,
-    unsubscribeRouteDefinition,
-    unsubscribeRouteHandler,
-} from './actions';
+import notifications from './notifications/actions';
+import { version, description } from '../package.json';
 
 const app = new OpenAPIHono();
 
+/** Service routes */
+app.route('/api/notifications', notifications);
+
+/** Main routes */
 app.get('/', (c) => c.text('Hello!'));
-
-app.openapi(subscribeRouteDefinition, subscribeRouteHandler);
-app.openapi(unsubscribeRouteDefinition, unsubscribeRouteHandler);
-app.openapi(notifyRouteDefinition, notifyRouteHandler);
-
+app.get('/api', (c) => c.json({ version, description }));
 app.use(
     '/doc/*',
     basicAuth({
@@ -28,15 +22,14 @@ app.use(
     }),
 );
 
+app.get('/doc/ui', swaggerUI({ url: '/doc/openapi' }));
 app.doc('/doc/openapi', {
     openapi: '3.0.0',
     info: {
-        version: '1.0.0',
-        title: 'Stock notification service',
+        version,
+        title: description,
     },
 });
-
-app.get('/doc/ui', swaggerUI({ url: '/doc/openapi' }));
 
 serve({
     fetch: app.fetch,

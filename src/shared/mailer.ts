@@ -1,6 +1,6 @@
 import * as nodemailer from 'nodemailer';
-import hbs = require('nodemailer-express-handlebars');
-import SMTPTransport = require('nodemailer/lib/smtp-transport');
+import hbs from 'nodemailer-express-handlebars';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 const config: SMTPTransport.Options = {
     host: process.env.SMTP_HOST,
